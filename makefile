@@ -9,6 +9,6 @@ $(TARGET): $(SRC)
 run: $(TARGET)
 > $(TARGET)
 
-clean: $(TARGET)
+clean:
 > rm $(TARGET)
 

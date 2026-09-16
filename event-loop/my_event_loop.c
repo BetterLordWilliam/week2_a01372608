@@ -9,6 +9,10 @@
 #define EXIT_COMMAND    exit
 
 
+/**
+global flag
+    indicates that the program is done & will terminate from the main loop
+*/
 int pDone = 0;
 
 
@@ -21,8 +25,13 @@ typedef enum procStdinCode {
 
 
 /**
-poll reports that there is data to be read (POLLIN)
-process the stdin stream
+process the stdin
+    this function will take a file descirptor & read the contents
+    into a buffer & then echo that to stdout via `printf`, with some minimal
+    formatting applied.
+
+    if stdin is 4 bytes it will check if the bytes equal the pattern 'exit' &
+    set the `pDone` global flag to have the value 1
 */
 static ProcStdinCode _processStdin(
     int fd 
@@ -32,23 +41,34 @@ static ProcStdinCode _processStdin(
     char* buf;              // buffer for stdin contents
     
     buf = (char*)calloc(BUF_SIZE, sizeof(char));
-    // read up to buffer size - 1 (need to inject null terminator)
     stdinrr = read(fd, buf, sizeof(char) * BUF_SIZE - 1);
 
     if (stdinrr < 0) {
-        // case 1 error
-        // deal with the results of the read call
-
+        // case 1 error, error while reading, so state this as the code
         errcode = PRCSTDIN_RERR;
         goto error;
 
     } else if (stdinrr > 0 || stdinrr == 0) {
         // case 2 some number of bytes were successfully read
-        // whatever number of bytes were read successfully
-        // we index into stdin at that index for the null terminator character
-        // now our buffer is a valid string
 
+        // check that the input buffer begins with sequence 'exit'
+        // if the read contents were of length 4 (the length of that word)
+        // don't care if the word is spelt with uppercase or lowercase letters
+        // set the program done, or `pDone` flag
+        if ((stdinrr == 5) && ( // [WO] platform specific because on win \r\n
+               ( buf[0] == 'e' || buf[0] == 'E')
+            && ( buf[1] == 'x' || buf[1] == 'X')
+            && ( buf[2] == 'i' || buf[2] == 'I')
+            && ( buf[3] == 't' || buf[3] == 'T')
+        ))
+            pDone = 1;
+        
+        // use byte number to set bytes read + 1 as null terminator
+        // character
         buf[stdinrr] = '\0';
+        
+        // write the buf to stdout
+        printf("\e[32m[ECHO]\e[0m: %s\n", buf);
     }    
     
     free(buf);
@@ -77,44 +97,20 @@ int main()
         int pollRes = poll(&s, 1, POLL_TIMEOUT);
 
         if (pollRes > 0) {
-            char* buf = (char*)calloc(BUF_SIZE, sizeof(char));
-            int by;
-            
-            // read up to a maximum of BUF_SIZE - 1
-            // so that \0 can be injected later for safe printing            
-            by = read(s.fd, buf, BUF_SIZE - 1);
 
-            printf("read return: %d\n", by);
-
-            // handle errors
-            if (by < 0) {
-                printf("READ FAILED");
-                free(buf); // error occured but we still need to free this
-                return 1;
-
-            // read was successful, in sofar as it read something
-            } else if (by > 0) {
-                // printf("%c %c %c %c\n", buf[0], buf[1], buf[2], buf[3]);
-            
-                // check that the input buffer begins with sequence 'exit'
-                // set the program done, or `pDone` flag
-                if (    buf[0] == 'e' 
-                        && buf[1] == 'x'
-                        && buf[2] == 'i'
-                        && buf[3] == 't'
-                )
-                    pDone = 1;
-
-                // set the last thing to null terminator
-                // safe to log with `printf`
-                buf[by] = '\0';
-                printf("\e[32m[ECHO]\e[0m: %s\n", buf);
-                // printf("\e[32m[ECHO]\e[0m:DUMMY\n");
-            } else {
-                // read returned 0 bytes read
+            if (s.revents & (
+                POLLERR | POLLHUP
+            )) {
+                // [WO] do these return events apply to file descriptors or just sockets?
+                // printf("there is an error w/ the socket(?)"); 
             }
-
-            free(buf); // free buffer
+            if (s.revents & (
+                POLLIN
+            )) {
+                // printf("there is data to be read");
+                if (_processStdin(s.fd) < 0)
+                    goto error;
+            }
 
         } else if (pollRes < 0) {
             printf("\e[30m[ERROR]\e[0mthere was an error polling\n");
@@ -126,6 +122,12 @@ int main()
     }
     printf("PROGRAM COMPLETE\n");
 
+
     return 0;
+
+
+error:
+    printf("ERROR EXITING PROGRAM W/ STATUS CODE 1");
+    return 1;
 }
 
