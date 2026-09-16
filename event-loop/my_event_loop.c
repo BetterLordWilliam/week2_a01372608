@@ -89,13 +89,15 @@ int main()
         .revents = 0
     };
     
-    pDone = 0; 
+    pDone = 0;  // [WO] reset the pDone flag before entering the main loop
     printf("PROGRAM STARTED\n");
     for (;;) {
+        // [WO] check the value of pDone flag before the iteration
+        // if the flag is set exit
         if (pDone) break;
-
+        
+        // [WO] the rest of the main loop is dealing with the polling cycle
         int pollRes = poll(&s, 1, POLL_TIMEOUT);
-
         if (pollRes > 0) {
 
             if (s.revents & (
