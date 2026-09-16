@@ -9,9 +9,60 @@
 #define EXIT_COMMAND    exit
 
 
+int pDone = 0;
+
+
+typedef enum procStdinCode {
+    /** OK or no errors */
+    PRCSTDIN_OK     = 0,
+    /** read error */
+    PRCSTDIN_RERR   = 1 
+} ProcStdinCode ;
+
+
+/**
+poll reports that there is data to be read (POLLIN)
+process the stdin stream
+*/
+static ProcStdinCode _processStdin(
+    int fd 
+) {
+    ProcStdinCode errcode;  // return this in the error goto
+    int stdinrr;            // result of reading from stdin
+    char* buf;              // buffer for stdin contents
+    
+    buf = (char*)calloc(BUF_SIZE, sizeof(char));
+    // read up to buffer size - 1 (need to inject null terminator)
+    stdinrr = read(fd, buf, sizeof(char) * BUF_SIZE - 1);
+
+    if (stdinrr < 0) {
+        // case 1 error
+        // deal with the results of the read call
+
+        errcode = PRCSTDIN_RERR;
+        goto error;
+
+    } else if (stdinrr > 0 || stdinrr == 0) {
+        // case 2 some number of bytes were successfully read
+        // whatever number of bytes were read successfully
+        // we index into stdin at that index for the null terminator character
+        // now our buffer is a valid string
+
+        buf[stdinrr] = '\0';
+    }    
+    
+    free(buf);
+    return PRCSTDIN_OK;
+
+error:
+    // return from the function w/ a non-zero exit code
+    free(buf);
+    return errcode;
+}
+
+
 int main() 
 {
-    int pDone;
     struct pollfd s = {
         .fd     = STDIN_FILENO,
         .events = POLLIN,
