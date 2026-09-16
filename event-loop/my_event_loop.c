@@ -56,7 +56,12 @@ int main()
                 if (    buf[0] == 'e' 
                         && buf[1] == 'x'
                         && buf[2] == 'i'
-                        && buf[3] == 't') { pDone = 1; }
+                        && buf[3] == 't'
+                ) {
+                    printf("begins w/ exit\n"); pDone = 1;
+                } else {
+                    printf("does not begin w/ exit\n");
+                }
 
                 // set the last thing to null terminator
                 // safe to log with `printf`
