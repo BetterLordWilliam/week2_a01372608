@@ -93,7 +93,7 @@ static ProcStdinCode _processStdin(
     char* buf;              // buffer for stdin contents
     
     buf = (char*)calloc(BUF_SIZE, sizeof(char));
-    stdinrr = read(fd, buf, sizeof(char) * BUF_SIZE);
+    stdinrr = read(fd, buf, sizeof(char) * BUF_SIZE - 1);
 
     if (stdinrr < 0) {
         // case 1 error, error while reading, so state this as the code
@@ -107,6 +107,10 @@ static ProcStdinCode _processStdin(
 
     } else if (stdinrr > 0) {
         // case 3 some number of bytes were successfully read
+        
+        // insert the null terminator
+        buf[stdinrr] = '\0';
+
         if (strncmp(buf, "exit", 4) == 0) {
             // check that the input buffer begins with sequence 'exit'
             // set the program done, or `pDone` flag
@@ -115,10 +119,10 @@ static ProcStdinCode _processStdin(
 
         } else {
             // write the buf to stdout
-            // printf("\e[32m[ECHO]\e[0m: %s\n", buf);
-            write(STDOUT_FILENO, ECHO_MSG, strlen(ECHO_MSG));
-            write(STDOUT_FILENO, buf, stdinrr);
-            write(STDOUT_FILENO, "\n", 1);
+             printf("\e[32m[ECHO]\e[0m: %s\n", buf);
+            // write(STDOUT_FILENO, ECHO_MSG, strlen(ECHO_MSG));
+            // write(STDOUT_FILENO, buf, stdinrr);
+            // write(STDOUT_FILENO, "\n", 1);
         }
     }    
     
