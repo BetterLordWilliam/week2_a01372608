@@ -10,13 +10,10 @@ This report describes my implementation of the week2 polling / event loop lab.
 
 Information regarding the compiling of this lab into a binary.
 
-### Compiling the Program
-
 For this lab I have created a [`makefile`](./makefile).
 
-You can run make & it will output the binary into a `build` directory.
-The name of the binary is `rvloop`, so you should be able to run the program
-directly with that binary.
+You can run `make` & it will output the binary into a `build` directory.
+The name of the binary is `rvloop`.
 
 There are make targets, run is dependent on compilation, so if you execute the
 following command in your shell
@@ -37,13 +34,6 @@ To manually compile with `gcc`, the following command or similar should suffice
 # folder & file are simply the names suggested in the lab instructions
 gcc ./event-loop/my_event_loop.c -o my-bin
 ```
-
-You could do all of that or...
-
-### Github Binaries
-
-My lab repos will be public, and I will include compiled versions of the code
-as github releases.
 
 ## Running the Program
 
