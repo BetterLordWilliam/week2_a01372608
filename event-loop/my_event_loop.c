@@ -11,16 +11,27 @@
 #define BUF_SIZE        (256)
 #define EXIT_COMMAND    exit
 
-#define PRCSTDIN_CTRLD_EXIT \
+#define PROGRAM_START_MSG "\e[34mPROGRAM STARTED\e[0m\n"
+#define PROGRAM_END_MSG "\e[34mPROGRAM END\e[0m\n"
+#define PRCSTDIN_CTRLD_EXIT_MSG \
     "\e[31m" \
     "ctrl+d detected, program will now exit" \
     "\e[0m\n"
-#define PRCSTDIN_EXIT_IN_INPUT \
+#define PRCSTDIN_EXIT_IN_INPUT_MSG \
     "\e[31m" \
     "string 'exit' detected within the first 4 bytes of input," \
     "program will now exit" \
     "\e[0m\n"
-
+#define HEARTBEAT_MSG \
+    "\e[33m" \
+    "[HEARTBEAT]" \
+    "\e[0m" \
+    ": poll timeout\n"
+#define POLLERR_MSG \
+    "\e[30m" \
+    "[ERROR]" \
+    "\e[0m" \
+    "there was an error polling\n"
 
 /**
 global flag
@@ -82,7 +93,7 @@ static ProcStdinCode _processStdin(
 
     } else if (stdinrr == 0) {
         // case 2 EOF detected
-        printf(PRCSTDIN_CTRLD_EXIT);
+        printf(PRCSTDIN_CTRLD_EXIT_MSG);
         pDone = 1;
 
     } else if (stdinrr > 0) {
@@ -90,7 +101,7 @@ static ProcStdinCode _processStdin(
         // check that the input buffer begins with sequence 'exit'
         // set the program done, or `pDone` flag
         if (strncmp(buf, "exit", 4) == 0) {
-            printf(PRCSTDIN_EXIT_IN_INPUT);
+            printf(PRCSTDIN_EXIT_IN_INPUT_MSG);
             pDone = 1;
         } else {
             // use byte number to set bytes read + 1 as null terminator
@@ -114,6 +125,9 @@ error:
 
 int main() 
 {
+    printf(PROGRAM_START_MSG);
+
+
     struct pollfd s = {
         .fd     = STDIN_FILENO,
         .events = POLLIN,
@@ -121,7 +135,7 @@ int main()
     };
     
     pDone = 0;  // [WO] reset the pDone flag before entering the main loop
-    printf("PROGRAM STARTED\n");
+
     for (;;) {
         // [WO] check the value of pDone flag before the iteration
         // if the flag is set exit
@@ -131,29 +145,27 @@ int main()
         int pollRes = poll(&s, 1, POLL_TIMEOUT);
         if (pollRes > 0) {
 
-            if (s.revents & (
-                POLLERR | POLLHUP
-            )) {
+            if (s.revents & (POLLERR | POLLHUP)) {
                 // [WO] do these return events apply to file descriptors or just sockets?
-                // printf("there is an error w/ the socket(?)"); 
+                // for now do nothing
             }
-            if (s.revents & (
-                POLLIN
-            )) {
-                // printf("there is data to be read");
-                if (_processStdin(s.fd) != PRCSTDIN_OK)
+            if (s.revents & POLLIN) {
+                if (_processStdin(s.fd) != PRCSTDIN_OK) {
                     goto error;
+                }
             }
 
         } else if (pollRes < 0) {
-            printf("\e[30m[ERROR]\e[0mthere was an error polling\n");
+            printf(POLLERR_MSG);
             return 1;
 
         } else {
-            printf("\e[33m[HEARTBEAT]\e[0m: poll timeout\n");
+            printf(HEARTBEAT_MSG);
         }
     }
-    printf("PROGRAM COMPLETE\n");
+
+
+    printf(PROGRAM_END_MSG);
 
 
     return 0;
