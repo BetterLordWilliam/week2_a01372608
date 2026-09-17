@@ -97,16 +97,17 @@ static ProcStdinCode _processStdin(
 
     } else if (stdinrr > 0) {
         // case 3 some number of bytes were successfully read
+
+        // use byte number to set bytes read + 1 as null terminator
+        // character
+        buf[stdinrr] = '\0';
+
         // check that the input buffer begins with sequence 'exit'
         // set the program done, or `pDone` flag
         if (strncmp(buf, "exit", 4) == 0) {
             printf(PRCSTDIN_EXIT_IN_INPUT_MSG);
             pDone = 1;
         } else {
-            // use byte number to set bytes read + 1 as null terminator
-            // character
-            buf[stdinrr] = '\0';
-            
             // write the buf to stdout
             printf("\e[32m[ECHO]\e[0m: %s\n", buf);
         }
