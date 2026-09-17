@@ -13,24 +13,34 @@
 #define PROGRAM_START_MSG "\e[34mPROGRAM STARTED\e[0m\n"
 #define PROGRAM_END_MSG "\e[34mPROGRAM END\e[0m\n"
 #define PRCSTDIN_CTRLD_EXIT_MSG \
-    "\e[31m" \
-    "ctrl+d detected, program will now exit" \
+    "\e[31m"                                    \
+    "ctrl+d detected, program will now exit"    \
     "\e[0m\n"
+
 #define PRCSTDIN_EXIT_IN_INPUT_MSG \
-    "\e[31m" \
+    "\e[31m"                                                    \
     "string 'exit' detected within the first 4 bytes of input," \
-    "program will now exit" \
+    "program will now exit"                                     \
     "\e[0m\n"
+
+#define ECHO_MSG \
+    "\e[32m"    \
+    "[ECHO]"    \
+    "\e[0m"     \
+    ": "
+
 #define HEARTBEAT_MSG \
-    "\e[33m" \
-    "[HEARTBEAT]" \
-    "\e[0m" \
+    "\e[33m"        \
+    "[HEARTBEAT]"   \
+    "\e[0m"         \
     ": poll timeout\n"
+
 #define POLLERR_MSG \
-    "\e[30m" \
-    "[ERROR]" \
-    "\e[0m" \
+    "\e[30m"    \
+    "[ERROR]"   \
+    "\e[0m"     \
     "there was an error polling\n"
+
 
 /**
 global flag
@@ -83,7 +93,7 @@ static ProcStdinCode _processStdin(
     char* buf;              // buffer for stdin contents
     
     buf = (char*)calloc(BUF_SIZE, sizeof(char));
-    stdinrr = read(fd, buf, sizeof(char) * BUF_SIZE - 1);
+    stdinrr = read(fd, buf, sizeof(char) * BUF_SIZE);
 
     if (stdinrr < 0) {
         // case 1 error, error while reading, so state this as the code
@@ -98,18 +108,18 @@ static ProcStdinCode _processStdin(
     } else if (stdinrr > 0) {
         // case 3 some number of bytes were successfully read
 
-        // use byte number to set bytes read + 1 as null terminator
-        // character
-        buf[stdinrr] = '\0';
-
         // check that the input buffer begins with sequence 'exit'
         // set the program done, or `pDone` flag
         if (strncmp(buf, "exit", 4) == 0) {
             printf(PRCSTDIN_EXIT_IN_INPUT_MSG);
             pDone = 1;
+
+        // write the buf to stdout
+        // printf("\e[32m[ECHO]\e[0m: %s\n", buf);
         } else {
-            // write the buf to stdout
-            printf("\e[32m[ECHO]\e[0m: %s\n", buf);
+            write(STDOUT_FILENO, ECHO_MSG, strlen(ECHO_MSG));
+            write(STDOUT_FILENO, buf, stdinrr);
+            write(STDOUT_FILENO, "\n", 1);
         }
     }    
     
@@ -126,7 +136,6 @@ error:
 int main() 
 {
     printf(PROGRAM_START_MSG);
-
 
     struct pollfd s = {
         .fd     = STDIN_FILENO,
