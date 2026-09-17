@@ -12,6 +12,8 @@
 
 #define PROGRAM_START_MSG "\e[34mPROGRAM STARTED\e[0m\n"
 #define PROGRAM_END_MSG "\e[34mPROGRAM END\e[0m\n"
+#define PROGRAM_ERROR_EXIT_MSG "\e[31mERROR EXECUTING PROGRAM\e[0m\n"
+
 #define PRCSTDIN_CTRLD_EXIT_MSG \
     "\e[31m"                                    \
     "ctrl+d detected, program will now exit"    \
@@ -41,6 +43,12 @@
     "\e[0m"     \
     "there was an error polling\n"
 
+#define POLL_INV_VAL_MSG \
+    "\e[30m"    \
+    "[ERROR]"   \
+    "\e[0m"     \
+    ": poll returned invalid value\n"
+
 
 /**
 global flag
@@ -51,20 +59,16 @@ int pDone = 0;
 
 /**
 time helper getting current monotonic time value.
+    returns -1 if there is an error getting the clock time.
 */
 int monotime() {
     int clockr;
     struct timespec t;
 
-    for (;;) {
-        clockr = clock_gettime(CLOCK_MONOTONIC, &t);
-        if (clockr == -1)
-            goto error;
-        return ((int32_t)t.tv_sec * 1000 + t.tv_nsec / 1000000);
-    }
-
-error:
-    return -1;
+    clockr = clock_gettime(CLOCK_MONOTONIC, &t);
+    if (clockr == -1)
+        return -1;
+    return ((int32_t)t.tv_sec * 1000 + t.tv_nsec / 1000000);
 }
 
 
@@ -89,7 +93,7 @@ static ProcStdinCode _processStdin(
     int fd 
 ) {
     ProcStdinCode errcode;  // return this in the error goto
-    int stdinrr;            // result of reading from stdin
+    ssize_t stdinrr;        // result of reading from stdin
     char* buf;              // buffer for stdin contents
     
     buf = (char*)calloc(BUF_SIZE, sizeof(char));
@@ -120,9 +124,6 @@ static ProcStdinCode _processStdin(
         } else {
             // write the buf to stdout
              printf("\e[32m[ECHO]\e[0m: %s\n", buf);
-            // write(STDOUT_FILENO, ECHO_MSG, strlen(ECHO_MSG));
-            // write(STDOUT_FILENO, buf, stdinrr);
-            // write(STDOUT_FILENO, "\n", 1);
         }
     }    
     
@@ -157,18 +158,25 @@ int main()
         int pollRes = poll(&s, 1, POLL_TIMEOUT);
         if (pollRes > 0) {
 
+            if (s.revents & (POLLNVAL)) {
+                // invalid value, error w/ the poll call
+                // fd closed begin error processing
+                perror(POLL_INV_VAL_MSG);
+                goto error;
+            }
             if (s.revents & (POLLERR | POLLHUP)) {
                 // [WO] do these return events apply to file descriptors or just sockets?
                 // for now do nothing
             }
             if (s.revents & POLLIN) {
                 if (_processStdin(s.fd) != PRCSTDIN_OK) {
+                    // `_processStdin` call failed begin error processing
                     goto error;
                 }
             }
 
         } else if (pollRes < 0) {
-            printf(POLLERR_MSG);
+            perror(POLLERR_MSG);
             return 1;
 
         } else {
@@ -184,7 +192,7 @@ int main()
 
 
 error:
-    printf("ERROR EXITING PROGRAM W/ STATUS CODE 1");
+    perror(PROGRAM_ERROR_EXIT_MSG);
     return 1;
 }
 
