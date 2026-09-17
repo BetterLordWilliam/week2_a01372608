@@ -35,11 +35,47 @@ To manually compile with `gcc`, the following command or similar should suffice
 gcc ./event-loop/my_event_loop.c -o my-bin
 ```
 
-## Running the Program
+## Using the Program
 
+Once a binary has been obtained & the program is running:
 
-## Program Description
+1. You will be greated with a blue message that states "PROGRAM START"
 
+![programstartmsg](./screenshots/progstart.png)
+
+2. From this point onwards the event loop is active, so if you are not inputting
+things expect poll messages to be logged every 3 seconds
+
+![polltimeoutmsg](./screenshots/polltimeoutmsg.png)
+
+3. The program is polling for input from stdin, so type some stuff & press enter.
+4. Your inputs should be printed to stdout, with an echo prefix.
+
+![inputecho](./screenshots/inputecho.png)
+
+5. after you have had your fun of echoing your own inputs, there are two means
+of exiting the program.
+
+6. exit via delivering the EOF with ctrl+d
+
+![ctrldexit](./screenshots/ctrldexit.png)
+
+7. or, exit via typing exit & pressing enter
+
+![exitcommand](./screenshots/exitcommand.png)
+
+> as you can see, different messages are logged for the different program exit
+> routes.
+
+8. finally you will see another blue message stating "PROGRAM END"
+
+![programendmsg](./screenshots/progend.png)
+
+Thats the program! The next section describes the implementation.
+
+## Implementation Description
+
+### Use of `POLL`
 
 
 
