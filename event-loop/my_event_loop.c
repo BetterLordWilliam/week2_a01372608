@@ -141,7 +141,7 @@ int main()
                 POLLIN
             )) {
                 // printf("there is data to be read");
-                if (_processStdin(s.fd) < 0)
+                if (_processStdin(s.fd) != PRCSTDIN_OK)
                     goto error;
             }
 
