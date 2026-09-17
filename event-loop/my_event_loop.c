@@ -1,7 +1,10 @@
+#include <bits/time.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <poll.h>
+#include <time.h>
 
 
 #define POLL_TIMEOUT    (3000)
@@ -14,6 +17,25 @@ global flag
     indicates that the program is done & will terminate from the main loop
 */
 int pDone = 0;
+
+
+/**
+time helper getting current monotonic time value.
+*/
+int monotime() {
+    int clockr;
+    struct timespec t;
+
+    for (;;) {
+        clockr = clock_gettime(CLOCK_MONOTONIC, &t);
+        if (clockr == -1)
+            goto error;
+        return ((int32_t)t.tv_sec * 1000 + t.tv_nsec / 1000000);
+    }
+
+error:
+    return -1;
+}
 
 
 typedef enum procStdinCode {
