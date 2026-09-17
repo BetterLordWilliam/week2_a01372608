@@ -1,4 +1,4 @@
-#include <bits/time.h>
+#include <string.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,6 +10,16 @@
 #define POLL_TIMEOUT    (3000)
 #define BUF_SIZE        (256)
 #define EXIT_COMMAND    exit
+
+#define PRCSTDIN_CTRLD_EXIT \
+    "\e[31m" \
+    "ctrl+d detected, program will now exit" \
+    "\e[0m\n"
+#define PRCSTDIN_EXIT_IN_INPUT \
+    "\e[31m" \
+    "string 'exit' detected within the first 4 bytes of input," \
+    "program will now exit" \
+    "\e[0m\n"
 
 
 /**
@@ -70,27 +80,26 @@ static ProcStdinCode _processStdin(
         errcode = PRCSTDIN_RERR;
         goto error;
 
-    } else if (stdinrr > 0 || stdinrr == 0) {
-        // case 2 some number of bytes were successfully read
+    } else if (stdinrr == 0) {
+        // case 2 EOF detected
+        printf(PRCSTDIN_CTRLD_EXIT);
+        pDone = 1;
 
+    } else if (stdinrr > 0) {
+        // case 3 some number of bytes were successfully read
         // check that the input buffer begins with sequence 'exit'
-        // if the read contents were of length 4 (the length of that word)
-        // don't care if the word is spelt with uppercase or lowercase letters
         // set the program done, or `pDone` flag
-        if ((stdinrr == 5) && ( // [WO] platform specific because on win \r\n
-               ( buf[0] == 'e' || buf[0] == 'E')
-            && ( buf[1] == 'x' || buf[1] == 'X')
-            && ( buf[2] == 'i' || buf[2] == 'I')
-            && ( buf[3] == 't' || buf[3] == 'T')
-        ))
+        if (strncmp(buf, "exit", 4) == 0) {
+            printf(PRCSTDIN_EXIT_IN_INPUT);
             pDone = 1;
-        
-        // use byte number to set bytes read + 1 as null terminator
-        // character
-        buf[stdinrr] = '\0';
-        
-        // write the buf to stdout
-        printf("\e[32m[ECHO]\e[0m: %s\n", buf);
+        } else {
+            // use byte number to set bytes read + 1 as null terminator
+            // character
+            buf[stdinrr] = '\0';
+            
+            // write the buf to stdout
+            printf("\e[32m[ECHO]\e[0m: %s\n", buf);
+        }
     }    
     
     free(buf);
