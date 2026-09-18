@@ -7,7 +7,6 @@
 
 
 #define POLL_TIMEOUT        (3000)
-#define MONOTIME_RETRY_MAX  (100)
 #define BUF_SIZE            (256)
 #define EXIT_COMMAND        exit
 
@@ -66,12 +65,8 @@ time helper getting current monotonic time value.
 int monotime(int64_t* r) {
     int clockr = 0, s = 0;
     struct timespec t;
-    for (;;) {
         clockr = clock_gettime(CLOCK_MONOTONIC, &t);
         if (clockr == -1) {
-            ++s; continue;
-        }
-        if (s == MONOTIME_RETRY_MAX)
             return -1;
         *r = (int64_t)t.tv_sec * 1000 + t.tv_nsec / 1000000;
         return 0;
