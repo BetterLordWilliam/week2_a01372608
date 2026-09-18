@@ -146,7 +146,8 @@ error:
 
 int main() 
 {
-    // start time (not necessary), running time, deadline time
+    // start time (not necessary), running time, deadline time,
+    // time left (loop accounting), and time to wait (loop accounting)
     int64_t stime  = 0, rtime = 0, dead = 0, left = 0, wait = 0;
     int pollRes = 0;
     if (monotime(&stime) < 0)
@@ -160,25 +161,23 @@ int main()
         .revents = 0
     };
     
-    pDone   = 0;  // [WO] reset the pDone flag before entering the main loop
+    pDone   = 0;  // reset the pDone flag before entering the main loop
     dead    = stime;
     dead    += POLL_TIMEOUT;
 
     for (;;) {
-        // [WO] check the value of pDone flag before the iteration
+        // check the value of pDone flag before the iteration
         // if the flag is set exit
         if (pDone) break;
         // read current iteration time
         if (monotime(&rtime) < 0)
             goto error;
 
-        // [WO] the rest of the main loop is dealing with the polling cycle
-        // minimum poll time of 0, incase rtime has elapsed the deadline
+        // minimum poll time of 0, in case rtime has elapsed the deadline
         left = dead - rtime;
         wait = (left > 0) ? left : 0;
         pollRes = poll(&s, 1, (int)wait);
 
-        // int pollRes = poll(&s, 1, dead - rtime);
         if (pollRes > 0) {
             if (s.revents & (POLLNVAL)) {
                 // invalid value, error w/ the poll call
@@ -204,6 +203,7 @@ int main()
         
         // compute next deadline while interval time is greater than
         // current deadline
+        // the prevent burst method from the slides
         if (monotime(&rtime) < 0)
             goto error;
         if (rtime >= dead) {
