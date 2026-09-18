@@ -59,18 +59,18 @@ int pDone = 0;
 
 /**
 time helper getting current monotonic time value.
-    returns 0 if successfully retrieves time, sets value of long r
+    returns 0 if successfully retrieves time, sets value of int64_t r
     returns -1 if underlying `clock_gettime` calls fail & exceed retries
 */
 int monotime(int64_t* r) {
     int clockr = 0, s = 0;
     struct timespec t;
-        clockr = clock_gettime(CLOCK_MONOTONIC, &t);
-        if (clockr == -1) {
-            return -1;
-        *r = (int64_t)t.tv_sec * 1000 + t.tv_nsec / 1000000;
-        return 0;
-    }
+
+    clockr = clock_gettime(CLOCK_MONOTONIC, &t);
+    if (clockr == -1)
+        return -1;
+    *r = (int64_t)t.tv_sec * 1000 + t.tv_nsec / 1000000;
+    return 0;
 }
 
 
