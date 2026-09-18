@@ -6,9 +6,10 @@
 #include <time.h>
 
 
-#define POLL_TIMEOUT    (3000)
-#define BUF_SIZE        (256)
-#define EXIT_COMMAND    exit
+#define POLL_TIMEOUT        (3000)
+#define MONOTIME_RETRY_MAX  (100)
+#define BUF_SIZE            (256)
+#define EXIT_COMMAND        exit
 
 #define PROGRAM_START_MSG "\e[34mPROGRAM STARTED\e[0m\n"
 #define PROGRAM_END_MSG "\e[34mPROGRAM END\e[0m\n"
@@ -59,16 +60,22 @@ int pDone = 0;
 
 /**
 time helper getting current monotonic time value.
-    returns -1 if there is an error getting the clock time.
+    returns 0 if successfully retrieves time, sets value of long r
+    returns -1 if underlying `clock_gettime` calls fail & exceed retries
 */
-int monotime() {
-    int clockr;
+int monotime(long* r) {
+    int clockr, s;
     struct timespec t;
-
-    clockr = clock_gettime(CLOCK_MONOTONIC, &t);
-    if (clockr == -1)
-        return -1;
-    return ((int32_t)t.tv_sec * 1000 + t.tv_nsec / 1000000);
+    for (;;) {
+        clockr = clock_gettime(CLOCK_MONOTONIC, &t);
+        if (clockr == -1) {
+            ++s; continue;
+        }
+        if (s == MONOTIME_RETRY_MAX)
+            return -1;
+        *r = (long)t.tv_sec * 1000 + t.tv_nsec / 1000000;
+        return 0;
+    }
 }
 
 
@@ -139,7 +146,13 @@ error:
 
 int main() 
 {
-    printf(PROGRAM_START_MSG);
+    // start time (not necessary), running time, deadline time
+    long stime  = 0, rtime = 0, dead = 0, left = 0, wait = 0;
+    int pollRes = 0;
+    if (monotime(&stime) < 0)
+        goto error;
+    
+    printf("%s\t%ld\n", PROGRAM_START_MSG, stime);
 
     struct pollfd s = {
         .fd     = STDIN_FILENO,
@@ -147,17 +160,26 @@ int main()
         .revents = 0
     };
     
-    pDone = 0;  // [WO] reset the pDone flag before entering the main loop
+    pDone   = 0;  // [WO] reset the pDone flag before entering the main loop
+    dead    = stime;
+    dead    += POLL_TIMEOUT;
 
     for (;;) {
         // [WO] check the value of pDone flag before the iteration
         // if the flag is set exit
         if (pDone) break;
-        
-        // [WO] the rest of the main loop is dealing with the polling cycle
-        int pollRes = poll(&s, 1, POLL_TIMEOUT);
-        if (pollRes > 0) {
+        // read current iteration time
+        if (monotime(&rtime) < 0)
+            goto error;
 
+        // [WO] the rest of the main loop is dealing with the polling cycle
+        // minimum poll time of 0, incase rtime has elapsed the deadline
+        left = dead - rtime;
+        wait = (left > 0) ? left : 0;
+        pollRes = poll(&s, 1, (int)wait);
+
+        // int pollRes = poll(&s, 1, dead - rtime);
+        if (pollRes > 0) {
             if (s.revents & (POLLNVAL)) {
                 // invalid value, error w/ the poll call
                 // fd closed begin error processing
@@ -177,10 +199,17 @@ int main()
 
         } else if (pollRes < 0) {
             perror(POLLERR_MSG);
-            return 1;
-
-        } else {
+            goto error;
+        }
+        
+        // compute next deadline while interval time is greater than
+        // current deadline
+        if (monotime(&rtime) < 0)
+            goto error;
+        if (rtime >= dead) {
             printf(HEARTBEAT_MSG);
+            do { dead += POLL_TIMEOUT; }
+            while (dead <= rtime);
         }
     }
 
