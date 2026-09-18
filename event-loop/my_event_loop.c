@@ -8,7 +8,6 @@
 
 #define POLL_TIMEOUT        (3000)
 #define BUF_SIZE            (256)
-#define EXIT_COMMAND        exit
 
 #define PROGRAM_START_MSG "\e[34mPROGRAM STARTED\e[0m\n"
 #define PROGRAM_END_MSG "\e[34mPROGRAM END\e[0m\n"
@@ -172,7 +171,6 @@ int main()
         left = dead - rtime;
         wait = (left > 0) ? left : 0;
         pollRes = poll(&s, 1, (int)wait);
-
         if (pollRes > 0) {
             if (s.revents & (POLLNVAL)) {
                 // invalid value, error w/ the poll call
@@ -180,17 +178,12 @@ int main()
                 printf(POLL_INV_VAL_MSG);
                 goto error;
             }
-            if (s.revents & (POLLERR | POLLHUP)) {
-                // [WO] do these return events apply to file descriptors or just sockets?
-                // for now do nothing
-            }
             if (s.revents & POLLIN) {
                 if (_processStdin(s.fd) != PRCSTDIN_OK) {
                     // `_processStdin` call failed begin error processing
                     goto error;
                 }
             }
-
         } else if (pollRes < 0) {
             printf(POLLERR_MSG);
             goto error;
