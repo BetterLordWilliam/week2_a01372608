@@ -63,8 +63,8 @@ time helper getting current monotonic time value.
     returns 0 if successfully retrieves time, sets value of long r
     returns -1 if underlying `clock_gettime` calls fail & exceed retries
 */
-int monotime(long* r) {
-    int clockr, s;
+int monotime(int64_t* r) {
+    int clockr = 0, s = 0;
     struct timespec t;
     for (;;) {
         clockr = clock_gettime(CLOCK_MONOTONIC, &t);
@@ -73,7 +73,7 @@ int monotime(long* r) {
         }
         if (s == MONOTIME_RETRY_MAX)
             return -1;
-        *r = (long)t.tv_sec * 1000 + t.tv_nsec / 1000000;
+        *r = (int64_t)t.tv_sec * 1000 + t.tv_nsec / 1000000;
         return 0;
     }
 }
@@ -147,7 +147,7 @@ error:
 int main() 
 {
     // start time (not necessary), running time, deadline time
-    long stime  = 0, rtime = 0, dead = 0, left = 0, wait = 0;
+    int64_t stime  = 0, rtime = 0, dead = 0, left = 0, wait = 0;
     int pollRes = 0;
     if (monotime(&stime) < 0)
         goto error;
@@ -183,7 +183,7 @@ int main()
             if (s.revents & (POLLNVAL)) {
                 // invalid value, error w/ the poll call
                 // fd closed begin error processing
-                perror(POLL_INV_VAL_MSG);
+                printf(POLL_INV_VAL_MSG);
                 goto error;
             }
             if (s.revents & (POLLERR | POLLHUP)) {
@@ -198,7 +198,7 @@ int main()
             }
 
         } else if (pollRes < 0) {
-            perror(POLLERR_MSG);
+            printf(POLLERR_MSG);
             goto error;
         }
         
@@ -221,7 +221,7 @@ int main()
 
 
 error:
-    perror(PROGRAM_ERROR_EXIT_MSG);
+    printf(PROGRAM_ERROR_EXIT_MSG);
     return 1;
 }
 
