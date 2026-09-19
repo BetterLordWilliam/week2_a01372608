@@ -272,7 +272,7 @@ which it writes monotime ms to.
 
 #### Getting Monotonic Time
 
-This helper simply takes care of calling `clock_gettime` w, the `CLOCK_MONOTONIC`
+This helper simply takes care of calling `clock_gettime` w/ the `CLOCK_MONOTONIC`
 & address to `t`. The return is stored in `clockr` & if this is -1 then -1 is
 returned from the function (as an error case to be checked by callers). Otherwise
 `t` `struct timespec` is populated w/ `.tv_sec` & `tv_nsec` values, these are 
