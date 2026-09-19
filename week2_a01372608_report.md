@@ -257,9 +257,25 @@ code stored in `errcode`.
 
 ### `monotime`
 
+![monotime](./screenshots/monotime.png)
 
+A helper function to get monotonic time. Accepts and address to `int64_t` `r` 
+which it writes monotime ms to.
 
 #### Variables & Initialization
 
-#### Error Handling & Cleanup
+| variable name | purpose |
+| :- | :- |
+| `clockr`  | to store the return value of `clock_gettime` |
+| `t`       | `struct timespec` instance `clock_gettime` will write monotime to |
+
+
+#### Getting Monotonic Time
+
+This helper simply takes care of calling `clock_gettime` w, the `CLOCK_MONOTONIC`
+& address to `t`. The return is stored in `clockr` & if this is -1 then -1 is
+returned from the function (as an error case to be checked by callers). Otherwise
+`t` `struct timespec` is populated w/ `.tv_sec` & `tv_nsec` values, these are 
+converted to ms, sumed & that number is assigned to `r` w/ 0 being returned
+(success).
 
