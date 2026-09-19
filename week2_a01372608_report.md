@@ -1,5 +1,4 @@
-# COMP7003
-### Week2 Lab Report
+# COMP7005 Week2 Lab Report
 
 Will Otterbein, A01372608
 
