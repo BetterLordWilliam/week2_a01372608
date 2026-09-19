@@ -1,0 +1,268 @@
+<h1 id="comp7005-week2-lab-report">COMP7005 Week2 Lab Report</h1>
+<p>Will Otterbein, A01372608</p>
+<h2 id="summary">Summary</h2>
+<p>This report describes my implementation of the week2 polling / event loop lab.</p>
+<h2 id="obtaining-a-program-binary">Obtaining a Program Binary</h2>
+<p>Information regarding the compiling of this lab into a binary.</p>
+<p>For this lab I have created a <a href="./makefile"><code>makefile</code></a>.</p>
+<p>You can run <code>make</code> &amp; it will output the binary into a <code>build</code> directory.
+The name of the binary is <code>rvloop</code>.</p>
+<p>There are make targets, run is dependent on compilation, so if you execute the
+following command in your shell</p>
+<pre><code class="language-bash">make run
+</code></pre>
+<p>Make will take care of compiling &amp; running the binary.</p>
+<blockquote>
+<p>this assumes you have make installed already on the system as well as the
+<code>gcc</code> compiler, as the makefile expects the <code>gcc</code> compiler &amp; uses it for the
+make commands or recipes</p>
+</blockquote>
+<p>To manually compile with <code>gcc</code>, the following command or similar should suffice</p>
+<pre><code class="language-bash"># folder &amp; file are simply the names suggested in the lab instructions
+gcc ./event-loop/my_event_loop.c -o my-bin
+</code></pre>
+<h2 id="using-the-program">Using the Program</h2>
+<p>Once a binary has been obtained &amp; the program is running:</p>
+<ol>
+<li>You will be greeted with a blue message that states &quot;PROGRAM START&quot;</li>
+</ol>
+<p><img src="./screenshots/progstart.png" alt="programstartmsg" /></p>
+<ol start="2">
+<li>From this point onwards the event loop is active, so if you are not inputting
+things expect poll messages to be logged every 3 seconds</li>
+</ol>
+<p><img src="./screenshots/polltimeoutmsg.png" alt="polltimeoutmsg" /></p>
+<ol start="3">
+<li>The program is polling for input from stdin, so type some stuff &amp; press enter.</li>
+<li>Your inputs should be printed to stdout, with an echo prefix.</li>
+</ol>
+<p><img src="./screenshots/inputecho.png" alt="inputecho" /></p>
+<ol start="5">
+<li><p>after you have had your fun of echoing your own inputs, there are two means
+of exiting the program.</p>
+</li>
+<li><p>exit via delivering the EOF with ctrl+d</p>
+</li>
+</ol>
+<p><img src="./screenshots/ctrldexit.png" alt="ctrldexit" /></p>
+<ol start="7">
+<li>or, exit via typing exit &amp; pressing enter</li>
+</ol>
+<p><img src="./screenshots/exitcommand.png" alt="exitcommand" /></p>
+<blockquote>
+<p>as you can see, different messages are logged for the different program exit
+routes.</p>
+</blockquote>
+<ol start="8">
+<li>finally you will see another blue message stating &quot;PROGRAM END&quot;</li>
+</ol>
+<p><img src="./screenshots/progend.png" alt="programendmsg" /></p>
+<p>Thats the program! The next section describes the implementation.</p>
+<h2 id="implementation-description">Implementation Description</h2>
+<p>This event loop program has the following features:</p>
+<ul>
+<li>read from STDIN &amp; echo whatever data therein appears after the user presses
+enter</li>
+<li>while there is no data to be read from STDIN, write a 'heartbeat' message
+to STDOUT</li>
+<li>exit the program when 'exit' is typed and entered to STDIN</li>
+</ul>
+<h3 id="global-data">Global Data</h3>
+<p>Before we get to the implementation I will describe the constants / global
+data of the program.</p>
+<p>You will see at the beginning of the program source file, , that there
+are a list of <code>#defines</code> for program constants &amp; messages. I did this because
+I like using macros for this purpose &amp; some of these are used across functions
+so <code>const char*</code> would need to passed around or defined globally.</p>
+<blockquote>
+<p>The messages are written using ansi escape sequences so that different
+message types are distinguishable (yellow == heartbeat, green == input echo,
+red == error/termination, etc.).</p>
+</blockquote>
+<p>I also
+used macros to define the numeric constants <code>POLL_TIMEOUT</code>, and <code>BUF_SIZE</code>.
+<code>POLL_TIMEOUT</code> is the intended interval between event loop iterations
+(aka how long <code>poll</code> should block), the value of this is 3000ms
+(or 3s from the lab). A <code>BUF_SIZE</code> is also declared, this is the size of the
+buffer which STDIN contents are read into (more about this later).</p>
+<p>You will also see the <code>pDone</code> flag declared as a global <code>int</code> type, this flag
+when set will break out of the event loop in <code>main</code>. In the beginning of <code>main</code>
+this flag is reset to 0.</p>
+<p>Now that the programs global data &amp; constants have been described, The following
+sections will detail the implementation of the event loop program.</p>
+<h3 id="main"><code>main</code></h3>
+<h4 id="variable-initialization">Variable Initialization</h4>
+<p>The program begins by initializing the necessary variables for time-keeping.</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">variable name</th>
+<th style="text-align: left;">purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>stime</code></td>
+<td style="text-align: left;">start time of the program, used to compute the initial deadline, <code>dead</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>rtime</code></td>
+<td style="text-align: left;">running time, computed each iteration of the event loop</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>dead</code></td>
+<td style="text-align: left;">the next deadline, initially set to <code>stime + POLL_TIMEOUT</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>left</code></td>
+<td style="text-align: left;">for each iteration of the event, calculated as <code>dead - rtime</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>wait</code></td>
+<td style="text-align: left;">time (ms) to wait <code>poll</code>, if <code>left</code> is &lt; 0 this value is clamped to 0</td>
+</tr>
+</tbody>
+</table>
+<p><img src="./screenshots/timevarinit.png" alt="timevarinit" /></p>
+<p>Then a start message is logged w/ the initial program time (<code>monotime</code> function
+implementation described later).</p>
+<p>Next, the <code>pollfd</code> struct <code>s</code> used by the program is initialized, <code>fd</code> is set to
+<code>STDIN_FILENO</code>, the file descriptor number for STDIN, and <code>events</code> is set to
+<code>POLLIN</code> as this is the only event required for this program (<code>revents</code> is
+also initialized to 0). The <code>pDone</code> flag is reset &amp; the initial
+interval deadline <code>dead</code> is calculated.</p>
+<p><img src="./screenshots/structinit.png" alt="structinit" /></p>
+<p>Following section will describe the event loop's implementation.</p>
+<h4 id="event-loop-use-of-poll">Event Loop &amp; Use of <code>POLL</code></h4>
+<p>This section of the <code>main</code> method constitutes the event loop logic:</p>
+<p><img src="./screenshots/evloop.png" alt="evloop" /></p>
+<p>The first thing per iteration is to check whether the <code>pDone</code> flag has been
+set, if so, break out of the event loop as the program should be done.</p>
+<p>Then, the running time, <code>rtime</code>, is calculated using the <code>monotime</code> helper (w/
+error handling). Before <code>poll</code> itself can be called, the duration of <code>poll</code> needs
+to be calculated based of the difference between <code>dead</code> &amp; <code>rtime</code>, stored in <code>left</code>.
+If the value of <code>left</code> is less than zero (meaning we have exceeded the deadline),
+a <code>wait</code> value of zero is used.</p>
+<p><code>poll</code> is then invoked with the address of <code>s</code> (<code>pollfd</code> struct), a count of 1, and
+the calculated <code>wait</code>, with the result of <code>poll</code> being stored in <code>pollRes</code>.</p>
+<p>The next bit of logic is handling the result of calling <code>poll</code>.</p>
+<p>Once poll stops blocking, we check if <code>pollRes &gt; 0</code> because that means there is data in STDIN to process. Before we pass the processing of that data to <code>_processStdin</code>, the program
+checks the <code>revents</code> to make sure that its not <code>POLLINVAL</code>, if it is then we jump
+to error processing as this means that the file descriptor passed to <code>poll</code> was
+closed, meaning STDIN has been closed. If <code>revents</code> is <code>POLLIN</code>, then we can
+proceed with processing STDIN via <code>_processStdin</code>, once that call completes
+we check its return code &amp; if its not <code>PRCSTDIN_OK</code> then this function failed
+&amp; we jump to error processing &amp; exit (see the <code>_processStdin</code> section for more
+info about what the program does w/ STDIN &amp; its return codes).</p>
+<p>If <code>pollRes &lt; 0</code> there was an error calling poll, we print the message
+<code>POLLERR_MSG</code> &amp; perform <code>goto error</code> to jump ahead to the <code>main</code> functions error
+handling / cleanup logic.</p>
+<blockquote>
+<p>if I understood the <code>man</code> page for <code>poll</code> correctly, <code>POLLERR</code> &amp; <code>POLLHUP</code> apply
+when the file descriptors passed to <code>poll</code> via the <code>pollfd</code> struct are sockets
+but we are working w/ STDIN so this does not apply. That is why I don't look
+for these in <code>revents</code></p>
+</blockquote>
+<p>Finally, the next deadline is calculated. I have implemented the version of this
+calculation that prevents a burst of messages, so while the current deadline
+is less than the running time <code>POLL_TIMEOUT</code> is added to the deadline &amp; heartbeats
+, <code>HEARTBEAT_MSG</code> are logged -- this logic is executed irrespective of the result of poll, so when poll returns 0 ie the timeout has been reached then heartbeats are
+still logged.</p>
+<p>At some point the user will trigger the end of the program, what this really
+means is that <code>pDone</code> is set, when that happens the loop is broken out of &amp;
+the program logs <code>PROGRAM_END_MSG</code> &amp; returns w/ exit code 0.</p>
+<h4 id="error-handling-cleanup">Error Handling &amp; Cleanup</h4>
+<p><code>main</code> does not allocate any heap memory, so there really is no cleanup to be
+done, but we do log <code>PROGRAM_ERROR_EXIT_MSG</code> &amp; return with an exit status of 1.</p>
+<h3 id="processstdin"><code>_processStdin</code></h3>
+<p><img src="./screenshots/processstdin.png" alt="processstdin" /></p>
+<p>Recall from the description of the event loop that this method is invoked when
+<code>pipe</code> returns some <code>n &gt; 0</code> (for this program it will be 1) &amp; that <code>revents</code> is
+set to <code>POLLIN</code>, meaning there is data to be read. <code>_processStdin</code> is invoked
+w/ being passed <code>s.fd</code> w/ the parameter name <code>fd</code>.</p>
+<h4 id="variables-initalization">Variables &amp; initalization</h4>
+<p>there are three variables defined by <code>_processStdin</code>:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">variable name</th>
+<th style="text-align: left;">purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>errcode</code></td>
+<td style="text-align: left;">of the enum type <code>ProcStdinCode</code> which abstracts the return codes for this function, 0 = OK, 1 = ERROR</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>stdinn</code></td>
+<td style="text-align: left;"><code>ssize_t</code> result of <code>read</code> syscall on the passed <code>fd</code>, which will be STDIN</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>buf</code></td>
+<td style="text-align: left;"><code>char*</code> buffer where STDIN contents will be written</td>
+</tr>
+</tbody>
+</table>
+<h4 id="reading-from-fd-stdin">Reading from <code>fd</code> (STDIN)</h4>
+<p><img src="./screenshots/readstdin.png" alt="readstdin" /></p>
+<p>In order to satisfy the required functionality of the program, we need to
+read the contents of STDIN, which is the file descriptor value of the <code>fd</code> parameter.</p>
+<p><code>buf</code> requires allocation at this point of the function &amp; so a call to <code>calloc</code>
+is made requesting a chunk of memory defined by <code>BUF_SIZE</code>.</p>
+<p>Now that we have memory to write STDIN to, we can execute the <code>read</code> syscall
+(we subtract one in order to provide a space for a <code>\0</code> terminator character to
+be injected). We perform error checking against <code>read</code>, if it returns <code>n &lt; 0</code>,
+then there was an issue executing read &amp; we goto the error handling &amp; cleanup
+section of <code>_processStdin</code>, assigning <code>errcode</code> to the <code>ProcStdinCode</code> value
+<code>PRCSTDIN_RERR</code> (1). If <code>read</code> returns <code>n == 0</code>, then EOF has been detected in
+STDIN &amp; the program will exit (delivering CTRL+D as an input), so <code>pDone</code> is
+set to 1. Otherwise, if <code>read</code> returns <code>n &gt; 0</code>, then at the nth index (so at most
+255 or the very end of the buffer) we set the character in the buffer to be <code>\0</code>
+in order that it is a valid string &amp; <code>printf</code> is used to echo the buffer
+contents to STDOUT.</p>
+<p>An additional exit condition of the program is whether the buffer contents have
+'exit' in them. This is very simply determined via <code>strncmp</code> w/ the buffer &amp;
+<code>&quot;exit&quot;</code> literal where <code>strncmp</code> is 0 (ie no differences between the first 4
+characters of the strings).</p>
+<p>Finally, the buffer (<code>buf</code>) is freed &amp; in the regular exit case <code>PRCSTDIN_OK</code> is
+returned.</p>
+<h4 id="error-handling-cleanup-1">Error Handling &amp; Cleanup</h4>
+<p><img src="./screenshots/prcstdinerr.png" alt="prcstdinerr" /></p>
+<p>In the error exit case, <code>_processStdin</code> still needs to free <code>buf</code>. It returns the
+code stored in <code>errcode</code>.</p>
+<blockquote>
+<p>return codes for <code>_processStdin</code> are defined in the <code>ProcStdinCode</code> enum type.
+<img src="./screenshots/prcstdincodes.png" alt="prcstdincodes" /></p>
+</blockquote>
+<h3 id="monotime"><code>monotime</code></h3>
+<p><img src="./screenshots/monotime.png" alt="monotime" /></p>
+<p>A helper function to get monotonic time. Accepts and address to <code>int64_t</code> <code>r</code>
+which it writes monotime ms to.</p>
+<h4 id="variables-initialization">Variables &amp; Initialization</h4>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">variable name</th>
+<th style="text-align: left;">purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>clockr</code></td>
+<td style="text-align: left;">to store the return value of <code>clock_gettime</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>t</code></td>
+<td style="text-align: left;"><code>struct timespec</code> instance <code>clock_gettime</code> will write monotime to</td>
+</tr>
+</tbody>
+</table>
+<h4 id="getting-monotonic-time">Getting Monotonic Time</h4>
+<p>This helper simply takes care of calling <code>clock_gettime</code> w/ the <code>CLOCK_MONOTONIC</code>
+&amp; address to <code>t</code>. The return is stored in <code>clockr</code> &amp; if this is -1 then -1 is
+returned from the function (as an error case to be checked by callers). Otherwise
+<code>t</code> <code>struct timespec</code> is populated w/ <code>.tv_sec</code> &amp; <code>tv_nsec</code> values, these are
+converted to ms, summed &amp; that number is assigned to <code>r</code> w/ 0 being returned
+(success).</p>
+
