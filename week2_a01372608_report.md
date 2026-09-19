@@ -200,13 +200,66 @@ done, but we do log `PROGRAM_ERROR_EXIT_MSG` & return with an exit status of 1.
 ![processstdin](./screenshots/processstdin.png)
 
 Recall from the description of the event loop that this method is invoked when
-`pipe` returns some `n > 0` (for this program it will be 1), meaning there is
-data to be read. `_processStdin` is invoked w/ being passed `s.fd`.
+`pipe` returns some `n > 0` (for this program it will be 1) & that `revents` is
+set to `POLLIN`, meaning there is data to be read. `_processStdin` is invoked
+w/ being passed `s.fd` w/ the parameter name `fd`.
 
 #### Variables & initalization
 
+there are three variables defined by `_processStdin`:
+
+| variable name | purpose |
+| :- | :- |
+| `errcode` | of the enum type `ProcStdinCode` which abstracts the return codes for this function, 0 = OK, 1 = ERROR |
+| `stdinn`  | `ssize_t` result of `read` syscall on the passed `fd`, which will be STDIN |
+| `buf`     | `char*` buffer where STDIN contents will be written |
+
+#### Reading from `fd` (STDIN)
+
+![readstdin](./screenshots/readstdin.png)
+
+In order to satisfy the required functionality of the program, we need to
+read the contents of STDIN, which is the file descriptor value of the `fd` parameter.
+
+`buf` requires allocation at this point of the function & so a call to `calloc`
+is made requesting a chunk of memory defined by `BUF_SIZE`.
+
+Now that we have memory to write STDIN to, we can execute the `read` syscall
+(we subtract one in order to provide a space for a `\0` terminator character to
+be injected). We perform error checking against `read`, if it returns `n < 0`,
+then there was an issue executing read & we goto the error handling & cleanup
+section of `_processStdin`, assigning `errcode` to the `ProcStdinCode` value 
+`PRCSTDIN_RERR` (1). If `read` returns `n == 0`, then EOF has been detected in
+STDIN & the program will exit (delivering CTRL+D as an input), so `pDone` is
+set to 1. Otherwise, if `read` returns `n > 0`, then at the nth index (so at most
+255 or the very end of the buffer) we set the character in the buffer to be `\0`
+in order that it is a valid string & `printf` is used to echo the buffer
+contents to STDOUT.
+
+An additional exit condition of the program is whether the buffer contents have
+'exit' in them. This is very simply determined via `strncmp` w/ the buffer &
+`"exit"` literal where `strncmp` is 0 (ie no differences between the first 4
+characters of the strings).
+
+Finally, the buffer (`buf`) is freed & in the regular exit case `PRCSTDIN_OK` is
+returned.
+
+
+#### Error Handling & Cleanup
+
+![prcstdinerr](./screenshots/prcstdinerr.png)
+
+In the error exit case, `_processStdin` still needs to free `buf`. It returns the
+code stored in `errcode`.
+
+> return codes for `_processStdin` are defined in the `ProcStdinCode` enum type.
+> ![prcstdincodes](./screenshots/prcstdincodes.png)
 
 ### `monotime`
 
-...
+
+
+#### Variables & Initialization
+
+#### Error Handling & Cleanup
 
