@@ -27,7 +27,7 @@ Make will take care of compiling & running the binary.
 
 > this assumes you have make installed already on the system as well as the
 > `gcc` compiler, as the makefile expects the `gcc` compiler & uses it for the
-> make commands or recipies
+> make commands or recipes
 
 To manually compile with `gcc`, the following command or similar should suffice
 
@@ -40,7 +40,7 @@ gcc ./event-loop/my_event_loop.c -o my-bin
 
 Once a binary has been obtained & the program is running:
 
-1. You will be greated with a blue message that states "PROGRAM START"
+1. You will be greeted with a blue message that states "PROGRAM START"
 
 ![programstartmsg](./screenshots/progstart.png)
 
@@ -86,7 +86,7 @@ to STDOUT
 
 ### Global Data
 
-Before we get to the implementation I will describe the contsants / global
+Before we get to the implementation I will describe the constants / global
 data of the program.
 
 You will see at the beginning of the program source file, , that there
@@ -94,7 +94,7 @@ are a list of `#defines` for program constants & messages. I did this because
 I like using macros for this purpose & some of these are used across functions
 so `const char*` would need to passed around or defined globally.
 
-> The messages are written using ansi escape sequencess so that different
+> The messages are written using ansi escape sequences so that different
 > message types are distinguishable (yellow == heartbeat, green == input echo,
 > red == error/termination, etc.).
 
@@ -103,7 +103,7 @@ used macros to define the numeric constants `POLL_TIMEOUT`, and `BUF_SIZE`.
 `POLL_TIMEOUT` is the intended interval between event loop iterations
 (aka how long `poll` should block), the value of this is 3000ms
 (or 3s from the lab). A `BUF_SIZE` is also declared, this is the size of the
-buffer which STDIN contents are read into (more aboutthis later).
+buffer which STDIN contents are read into (more about this later).
 
 You will also see the `pDone` flag declared as a global `int` type, this flag
 when set will break out of the event loop in `main`. In the beginning of `main`
@@ -122,7 +122,7 @@ The program begins by initializing the necessary variables for time-keeping.
 | :- | :- |
 | `stime` | start time of the program, used to compute the initial deadline, `dead`|
 | `rtime` | running time, computed each iteration of the event loop |
-| `dead`  | the next deadline, initally set to `stime + POLL_TIMEOUT`  |
+| `dead`  | the next deadline, initially set to `stime + POLL_TIMEOUT`  |
 | `left`  | for each iteration of the event, calculated as `dead - rtime` |
 | `wait`  | time (ms) to wait `poll`, if `left` is < 0 this value is clamped to 0 |
 
@@ -131,7 +131,7 @@ The program begins by initializing the necessary variables for time-keeping.
 Then a start message is logged w/ the initial program time (`monotime` function
 implementation described later).
 
-Next, the `pollfd` struct `s` used by the program is initalized, `fd` is set to
+Next, the `pollfd` struct `s` used by the program is initialized, `fd` is set to
 `STDIN_FILENO`, the file descriptor number for STDIN, and `events` is set to
 `POLLIN` as this is the only event required for this program (`revents` is
 also initialized to 0). The `pDone` flag is reset & the initial 
@@ -157,7 +157,7 @@ to be calculated based of the difference between `dead` & `rtime`, stored in `le
 If the value of `left` is less than zero (meaning we have exceeded the deadline),
 a `wait` value of zero is used.
 
-`poll` is then invoked with the address of `s` (pollfd struct), a count of 1, and
+`poll` is then invoked with the address of `s` (`pollfd` struct), a count of 1, and
 the calculated `wait`, with the result of `poll` being stored in `pollRes`.
 
 The next bit of logic is handling the result of calling `poll`.
@@ -276,6 +276,6 @@ This helper simply takes care of calling `clock_gettime` w, the `CLOCK_MONOTONIC
 & address to `t`. The return is stored in `clockr` & if this is -1 then -1 is
 returned from the function (as an error case to be checked by callers). Otherwise
 `t` `struct timespec` is populated w/ `.tv_sec` & `tv_nsec` values, these are 
-converted to ms, sumed & that number is assigned to `r` w/ 0 being returned
+converted to ms, summed & that number is assigned to `r` w/ 0 being returned
 (success).
 
